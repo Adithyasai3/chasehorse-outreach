@@ -1,0 +1,430 @@
+// ChaseHorse Lead Intelligence & Outreach Platform Prisma Schema
+// PostgreSQL Database
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  role      String   @default("USER") // ADMIN, USER, SALES_REP
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Company {
+  id                    String                 @id @default(uuid())
+  name                  String
+  domain                String?                @unique
+  website               String?
+  logo                  String?
+  industry              String?
+  subIndustry           String?
+  country               String?                @default("India")
+  state                 String?
+  city                  String?
+  headcount             String? // e.g. "51-200"
+  employeeCount         Int?
+  foundedYear           Int?
+  description           String?
+  businessModel         String? // B2B, B2C, D2C, Hybrid
+  leadScore             Int                    @default(0) // 0 - 100
+  qualificationPriority String                 @default("UNQUALIFIED") // HIGH, MEDIUM, LOW, UNQUALIFIED
+  qualificationReason   String?
+  source                String                 @default("ENRICHO_MCP") // ENRICHO_MCP, MANUAL, CSV_IMPORT
+  sourceQuery           String?
+  isArchived            Boolean                @default(false)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  // Kanban Stage Relation
+  kanbanStageId         String?
+  kanbanStage           KanbanStage?           @relation(fields: [kanbanStageId], references: [id], onDelete: SetNull)
+
+  // Relations
+  contacts              Contact[]
+  research              CompanyResearch?
+  fundingRounds         FundingRound[]
+  serviceMatches        CompanyServiceMatch[]
+  emailDrafts           EmailDraft[]
+  emailMessages         EmailMessage[]
+  emailThreads          EmailThread[]
+  activities            LeadActivity[]
+  followUps             FollowUp[]
+  notes                 Note[]
+  aiUsageLogs           AIUsageLog[]
+  campaigns             CampaignCompany[]
+
+  @@index([domain])
+  @@index([industry])
+  @@index([leadScore])
+  @@index([qualificationPriority])
+  @@index([kanbanStageId])
+}
+
+model Contact {
+  id              String         @id @default(uuid())
+  companyId       String
+  company         Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  firstName       String?
+  lastName        String?
+  fullName        String
+  email           String?
+  isEmailVerified Boolean        @default(false)
+  phone           String?
+  title           String? // e.g. "Head of Operations", "Founder"
+  role            String? // Operations, Supply Chain, Executive, Procurement
+  seniority       String? // c_suite, founder, vp, director, manager
+  linkedinUrl     String?
+  isPrimary       Boolean        @default(false)
+  source          String         @default("ENRICHO_MCP")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  emailDrafts     EmailDraft[]
+  emailMessages   EmailMessage[]
+  emailThreads    EmailThread[]
+  activities      LeadActivity[]
+  followUps       FollowUp[]
+  notes           Note[]
+
+  @@index([companyId])
+  @@index([email])
+  @@index([title])
+}
+
+model CompanyResearch {
+  id                   String   @id @default(uuid())
+  companyId            String   @unique
+  company              Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  operationalChallenges String[] // Array of challenges inferred/verified
+  expansionSignals     String[] // e.g. "Opening 3 new warehouses in Pune & NCR"
+  growthIndicators     String[] // e.g. "Hiring +40% headcount in operations"
+  businessDevelopments String?
+  verifiedClaims       String[] // Factual statements with source URLs
+  unverifiedInferences String[] // AI inferences marked unverified
+  researchSources      String[] // Source URLs
+  rawAnalysis          String?
+  generatedAt          DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model FundingRound {
+  id            String    @id @default(uuid())
+  companyId     String
+  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  roundType     String // Seed, Series A, Series B, etc.
+  amountUsd     Decimal?  @db.Decimal(15, 2)
+  amountDisplay String? // e.g. "$12M"
+  announcedDate DateTime?
+  leadInvestors String[]
+  createdAt     DateTime  @default(now())
+
+  @@index([companyId])
+}
+
+model Service {
+  id                 String                @id @default(uuid())
+  name               String
+  slug               String                @unique
+  description        String
+  targetIndustries   String[]
+  targetCompanySizes String[]
+  businessProblems   String[]
+  valueProposition   String
+  caseStudies        String?
+  isActive           Boolean               @default(true)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  serviceMatches     CompanyServiceMatch[]
+  emailDrafts        EmailDraft[]
+  campaigns          Campaign[]
+}
+
+model CompanyServiceMatch {
+  id                  String   @id @default(uuid())
+  companyId           String
+  company             Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  serviceId           String
+  service             Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  relevanceScore      Int      @default(0) // 0 - 100
+  whyRelevant         String
+  supportingEvidence  String?
+  targetDecisionMaker String? // e.g. "COO or Head of Supply Chain"
+  outreachAngle       String? // Hook to use in emails
+  confidenceScore     Float    @default(0.0) // 0.0 - 1.0
+  createdAt           DateTime @default(now())
+
+  @@unique([companyId, serviceId])
+  @@index([companyId])
+  @@index([serviceId])
+}
+
+model LeadSearch {
+  id                 String   @id @default(uuid())
+  rawQuery           String
+  interpretedFilters Json // structured JSON filters output by Gemini
+  searchType         String   @default("NATURAL_LANGUAGE") // NATURAL_LANGUAGE, MANUAL_FILTERS
+  status             String   @default("COMPLETED") // PENDING, PROCESSING, COMPLETED, FAILED
+  resultsCount       Int      @default(0)
+  creditsUsed        Int      @default(0)
+  executionTimeMs    Int      @default(0)
+  errorMessage       String?
+  createdAt          DateTime @default(now())
+}
+
+model LeadSource {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  type      String // MCP, API, CSV, MANUAL
+  config    Json?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model EmailDraft {
+  id                      String   @id @default(uuid())
+  companyId               String
+  company                 Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contactId               String?
+  contact                 Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  serviceId               String?
+  service                 Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  outreachStyle           String   @default("DIRECT_INTRO") // DIRECT_INTRO, PROBLEM_ORIENTED, PARTNERSHIP, FOLLOW_UP, WARM_INTRO
+  subject                 String
+  bodyHtml                String
+  bodyText                String
+  personalizationEvidence String?
+  status                  String   @default("DRAFT") // DRAFT, APPROVED, SENT, REJECTED
+  generatedByAi           Boolean  @default(true)
+  isApproved              Boolean  @default(false)
+  sentAt                  DateTime?
+  scheduledFor            DateTime?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([contactId])
+  @@index([status])
+}
+
+model EmailMessage {
+  id             String       @id @default(uuid())
+  gmailMessageId String?      @unique
+  threadId       String?
+  direction      String // OUTBOUND, INBOUND
+  fromEmail      String
+  toEmail        String
+  ccEmail        String?
+  bccEmail       String?
+  subject        String
+  bodyHtml       String?
+  bodyText       String?
+  snippet        String?
+  sentAt         DateTime?
+  receivedAt     DateTime?
+  isRead         Boolean      @default(false)
+  companyId      String?
+  company        Company?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contactId      String?
+  contact        Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  emailThreadId  String?
+  emailThread    EmailThread? @relation(fields: [emailThreadId], references: [id], onDelete: SetNull)
+  sentiment      String? // POSITIVE, NEUTRAL, NEGATIVE, OUT_OF_OFFICE, WRONG_PERSON
+  intent         String? // INTERESTED, MEETING_REQUEST, MORE_INFO, NOT_INTERESTED, UNSUBSCRIBE
+  suggestedReply String? // AI-generated suggested response for incoming replies
+  createdAt      DateTime     @default(now())
+
+  @@index([companyId])
+  @@index([contactId])
+  @@index([emailThreadId])
+  @@index([gmailMessageId])
+}
+
+model EmailThread {
+  id             String         @id @default(uuid())
+  gmailThreadId  String         @unique
+  subject        String
+  lastMessageAt  DateTime       @default(now())
+  companyId      String?
+  company        Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contactId      String?
+  contact        Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  messagesCount  Int            @default(1)
+  hasReplies     Boolean        @default(false)
+  status         String         @default("ACTIVE") // ACTIVE, CLOSED, ARCHIVED
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  messages       EmailMessage[]
+
+  @@index([companyId])
+  @@index([contactId])
+}
+
+model Campaign {
+  id             String            @id @default(uuid())
+  name           String
+  description    String?
+  status         String            @default("DRAFT") // DRAFT, RUNNING, PAUSED, COMPLETED
+  targetAudience Json? // criteria used
+  serviceId      String?
+  service        Service?          @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  companies      CampaignCompany[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+model CampaignCompany {
+  id         String   @id @default(uuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  status     String   @default("ENROLLED") // ENROLLED, OUTREACHED, REPLIED, BOUNCED, CONVERTED
+  enrolledAt DateTime @default(now())
+
+  @@unique([campaignId, companyId])
+}
+
+model KanbanStage {
+  id        String    @id @default(uuid())
+  name      String
+  key       String    @unique // e.g. "discovered", "email_sent", "meeting_scheduled"
+  order     Int       @unique
+  color     String    @default("#64748b")
+  isDefault Boolean   @default(true)
+  isSystem  Boolean   @default(false)
+  companies Company[]
+}
+
+model LeadActivity {
+  id          String   @id @default(uuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contactId   String?
+  contact     Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  type        String // STATUS_CHANGE, EMAIL_SENT, EMAIL_RECEIVED, RESEARCH_UPDATED, NOTE_ADDED, FOLLOW_UP_CREATED
+  title       String
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([companyId])
+}
+
+model FollowUp {
+  id           String    @id @default(uuid())
+  companyId    String
+  company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contactId    String?
+  contact      Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  title        String
+  dueDate      DateTime
+  status       String    @default("PENDING") // PENDING, COMPLETED, SNOOZED, CANCELLED
+  sequenceStep Int       @default(1) // 1: Initial, 2: Day 3, 3: Day 7, 4: Day 14
+  reminderDays Int       @default(3)
+  notes        String?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([companyId])
+  @@index([dueDate])
+  @@index([status])
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  content   String
+  author    String   @default("User")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model GmailAccount {
+  id                    String    @id @default(uuid())
+  email                 String    @unique
+  accessTokenEncrypted  String
+  refreshTokenEncrypted String?
+  expiryDate            BigInt?
+  scopes                String[]
+  isActive              Boolean   @default(true)
+  lastSyncAt            DateTime?
+  historyId             String?
+  syncStatus            String    @default("IDLE") // IDLE, SYNCING, ERROR
+  lastErrorMessage      String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model Integration {
+  id              String   @id @default(uuid())
+  provider        String   @unique // ENRICHO_MCP, GEMINI_AI, GMAIL
+  status          String   @default("DISCONNECTED") // CONNECTED, DISCONNECTED, ERROR
+  config          Json?
+  lastHealthCheck DateTime @default(now())
+  errorMessage    String?
+  creditsUsed     Int      @default(0)
+  creditsLimit    Int?
+  updatedAt       DateTime @updatedAt
+}
+
+model EnrichmentLog {
+  id              String   @id @default(uuid())
+  provider        String   @default("ENRICHO_MCP")
+  operation       String // company_search, person_search, account_usage
+  targetDomain    String?
+  targetQuery     String?
+  creditsConsumed Int      @default(0)
+  responseStatus  String // SUCCESS, FAILED, RATE_LIMITED, CACHED
+  errorDetails    String?
+  rawPayload      Json?
+  createdAt       DateTime @default(now())
+
+  @@index([provider])
+  @@index([targetDomain])
+}
+
+model AIUsageLog {
+  id               String   @id @default(uuid())
+  provider         String   @default("GOOGLE_GEMINI")
+  model            String
+  operation        String // SEARCH_INTERPRETATION, COMPANY_QUALIFICATION, SERVICE_MATCHING, EMAIL_GENERATION, REPLY_CLASSIFICATION
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  estimatedCost    Decimal? @db.Decimal(10, 6)
+  companyId        String?
+  company          Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  createdAt        DateTime @default(now())
+
+  @@index([operation])
+  @@index([companyId])
+}
+
+model SuppressionList {
+  id        String   @id @default(uuid())
+  email     String?  @unique
+  domain    String?  @unique
+  reason    String // UNSUBSCRIBED, BOUNCED, SPAM_COMPLAINT, MANUAL_EXCLUSION
+  addedBy   String   @default("SYSTEM")
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([domain])
+}
