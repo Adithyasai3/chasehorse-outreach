@@ -1,20 +1,22 @@
 {
   "name": "chasehorse-outreach",
   "version": "1.0.0",
-  "description": "AI-Powered Lead Intelligence & Outreach Management Platform for ChaseHorse",
+  "private": true,
+  "description": "Lead discovery, research, qualification and outreach platform for ChaseHorse",
   "scripts": {
-    "dev:backend": "cd backend && npm run dev",
-    "dev:frontend": "cd frontend && npm run dev",
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "build:backend": "cd backend && npm run build",
-    "build:frontend": "cd frontend && npm run build",
-    "build": "npm run build:backend && npm run build:frontend",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "db:push": "cd backend && npx prisma db push",
-    "db:migrate": "cd backend && npx prisma migrate dev",
-    "db:seed": "cd backend && npm run seed",
-    "db:studio": "cd backend && npx prisma studio"
+    "infra:up": "docker compose up -d postgres redis",
+    "infra:down": "docker compose down",
+    "stack:up": "docker compose --profile app up -d --build",
+    "stack:down": "docker compose --profile app down",
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "db:migrate": "npm --prefix backend run db:deploy",
+    "db:seed": "npm --prefix backend run seed",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev": "concurrently -n api,web -c gray,yellow \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "test": "npm --prefix backend test",
+    "typecheck": "npm --prefix backend run typecheck && npx --prefix frontend tsc -p frontend --noEmit",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

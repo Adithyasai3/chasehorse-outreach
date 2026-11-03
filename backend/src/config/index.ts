@@ -1,46 +1,64 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load .env from backend or root
+// Load backend/.env first, then repo-root .env (values already set win).
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+
+const env = process.env.NODE_ENV || 'development';
+const isTest = env === 'test';
+const isProd = env === 'production';
+
+function required(name: string, devFallback?: string): string {
+  const value = process.env[name];
+  if (value && value.trim()) return value.trim();
+  if (!isProd && devFallback !== undefined) return devFallback;
+  throw new Error(`Missing required environment variable ${name}`);
+}
+
+const encryptionKey = required(
+  'ENCRYPTION_KEY',
+  isTest ? '0'.repeat(64) : undefined
+);
+if (!/^[0-9a-fA-F]{64}$/.test(encryptionKey)) {
+  throw new Error('ENCRYPTION_KEY must be 64 hex characters (32 bytes). Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+}
+
+const jwtSecret = required('JWT_SECRET', isTest ? 'test-jwt-secret-not-for-production-use' : undefined);
+if (jwtSecret.length < 32) {
+  throw new Error('JWT_SECRET must be at least 32 characters.');
+}
+
+const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 export const config = {
-  env: process.env.NODE_ENV || 'development',
+  env,
+  isProd,
+  isTest,
   port: parseInt(process.env.PORT || '5000', 10),
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
-
-  database: {
-    url: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/chasehorse?schema=public',
-  },
-
-  redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379', 10),
-    password: process.env.REDIS_PASSWORD || undefined,
-  },
-
+  // Public URL of the web app. The frontend proxies /api/* to this backend, so
+  // OAuth redirect URIs live under the app origin and share its session cookie.
+  appUrl,
+  databaseUrl: required('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5434/chasehorse?schema=public'),
+  redisUrl: process.env.REDIS_URL || 'redis://localhost:6381',
   security: {
-    encryptionSecret:
-      process.env.ENCRYPTION_SECRET || '4f9c8d2e1a3b5c7e9f0a2b4c6d8e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e',
-    jwtSecret: process.env.JWT_SECRET || 'chasehorse-super-secret-jwt-key-2026',
+    encryptionKey,
+    jwtSecret,
+    sessionCookie: 'ch_session',
+    sessionTtlHours: 24 * 7,
+    cookieSecure: appUrl.startsWith('https://'),
   },
-
-  gemini: {
-    apiKey: process.env.GEMINI_API_KEY || '',
-    model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-  },
-
-  enricho: {
-    mcpUrl: process.env.ENRICHO_MCP_URL || 'https://mcp.enricho.co/mcp',
-    apiKey: process.env.ENRICHO_API_KEY || '',
-    simulationMode: process.env.ENRICHO_SIMULATION_MODE === 'true',
-  },
-
-  gmail: {
+  google: {
     clientId: process.env.GOOGLE_CLIENT_ID || '',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-    redirectUri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/gmail/oauth/callback',
-    syncIntervalMinutes: parseInt(process.env.GMAIL_SYNC_INTERVAL_MINUTES || '5', 10),
+    redirectUri: `${appUrl}/api/integrations/google/callback`,
   },
+  enricho: {
+    // Enricho (https://enricho.co) MCP server, Streamable HTTP transport.
+    mcpUrl: process.env.ENRICHO_MCP_URL || 'https://mcp.enricho.co/mcp',
+    oauthRedirectUri: `${appUrl}/api/integrations/enricho/oauth/callback`,
+  },
+  gmailSyncIntervalMinutes: parseInt(process.env.GMAIL_SYNC_INTERVAL_MINUTES || '10', 10),
 };
+
+export const googleConfigured = () => Boolean(config.google.clientId && config.google.clientSecret);

@@ -1,26 +1,24 @@
-import './globals.css';
 import type { Metadata } from 'next';
-import { Sidebar } from '@/components/sidebar';
-import { Header } from '@/components/header';
+// Self-hosted fonts: no network access needed at build or run time.
+import '@fontsource/ibm-plex-sans/400.css';
+import '@fontsource/ibm-plex-sans/500.css';
+import '@fontsource/ibm-plex-sans/600.css';
+import '@fontsource/ibm-plex-mono/400.css';
+import '@fontsource/ibm-plex-mono/500.css';
+import { ToastProvider } from '@/components/ui';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'ChaseHorse — AI Lead Intelligence & Outreach Platform',
-  description: 'AI-powered B2B prospecting, company intelligence, and outreach platform for ChaseHorse logistics.',
+  title: { default: 'ChaseHorse Outreach', template: '%s · ChaseHorse Outreach' },
+  description: 'Prospect research, lead qualification and outreach for the ChaseHorse logistics sales team.',
+  robots: { index: false },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-[#090d16] text-slate-100 min-h-screen flex">
-        <Sidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <Header />
-          <main className="flex-1 p-8 overflow-y-auto">{children}</main>
-        </div>
+    <html lang="en">
+      <body>
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

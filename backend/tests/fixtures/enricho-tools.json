@@ -1,0 +1,60 @@
+[
+  {
+    "name": "company_search",
+    "description": "Find, look up and enrich companies. Free preview, then 5 credits per full record. [Fixture written from https://docs.enricho.co/tools/company-search.md; live tools/list requires authentication]",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "preview": { "type": "boolean", "description": "Free, unpaginated sample of up to 3 results without exact totals. Ignores limit." },
+        "industry": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }], "description": "Part of the industry name." },
+        "employee_size_band": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }], "description": "Company size bands, from 1-10 up to 10001+." },
+        "country_code": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }], "description": "Headquarters country, ISO 3166-1 alpha-2." },
+        "domain": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }], "description": "Exact domains." },
+        "name": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }], "description": "Part of the company name." },
+        "company_id": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }], "description": "Known company IDs." },
+        "query": { "type": "string", "description": "Plain words; each must appear in name, domain, website, industry, country or address." },
+        "exclude_company_ids": { "type": "array", "items": { "type": "string" } },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 },
+        "cursor": { "type": "string" }
+      }
+    }
+  },
+  {
+    "name": "person_search",
+    "description": "Find, look up and enrich people. Free preview, then 5 credits per full record. [Fixture written from https://docs.enricho.co/tools/person-search.md]",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "preview": { "type": "boolean" },
+        "job_title": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+        "seniority": { "anyOf": [{ "type": "string", "enum": ["c_suite", "vp", "director", "head", "manager", "founder", "owner", "partner", "senior", "entry"] }, { "type": "array", "items": { "type": "string", "enum": ["c_suite", "vp", "director", "head", "manager", "founder", "owner", "partner", "senior", "entry"] } }] },
+        "role": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+        "industry": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+        "employee_size_band": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+        "country_code": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+        "city": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+        "company_domain": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+        "company_name": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+        "company_id": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+        "has_email": { "type": "boolean" },
+        "has_phone": { "type": "boolean" },
+        "has_linkedin": { "type": "boolean" },
+        "skill": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+        "query": { "type": "string" },
+        "exclude_company_domains": { "type": "array", "items": { "type": "string" } },
+        "exclude_person_ids": { "type": "array", "items": { "type": "string" } },
+        "email": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+        "linkedin_url": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+        "person_id": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+        "full_name": { "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }] },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 },
+        "cursor": { "type": "string" }
+      }
+    }
+  },
+  { "name": "account_usage", "description": "Credits left, monthly reset and auto top-up. Free. [From https://docs.enricho.co/tools/account.md]", "inputSchema": { "type": "object", "properties": {} } },
+  { "name": "account_buy_credits", "description": "Returns a checkout link. Free.", "inputSchema": { "type": "object", "properties": { "credits": { "type": "integer" } } } },
+  { "name": "account_billing_portal", "description": "Returns a billing portal link. Free.", "inputSchema": { "type": "object", "properties": {} } },
+  { "name": "find_jobs", "description": "Find job postings. 5 credits per new posting.", "inputSchema": { "type": "object", "properties": { "query": { "type": "string" } } } },
+  { "name": "find_profiles", "description": "Find social profiles. 5 credits per new profile.", "inputSchema": { "type": "object", "properties": { "query": { "type": "string" } } } }
+]

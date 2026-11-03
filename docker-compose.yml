@@ -1,4 +1,11 @@
-@'
+# Infrastructure only:          docker compose up -d
+# Full stack (API + web too):   docker compose --profile app up -d --build
+#
+# Host ports are chosen to avoid clashing with other local projects:
+#   PostgreSQL 5434, Redis 6381, API 5000, web 3000 (override with WEB_PORT + APP_URL).
+
+name: chasehorse-outreach
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -11,28 +18,61 @@ services:
     ports:
       - "5434:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - chasehorse_pg:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d chasehorse"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   redis:
     image: redis:7-alpine
     container_name: chasehorse_redis
     restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6381:6379"
     volumes:
-      - redis_data:/data
+      - chasehorse_redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+
+  backend:
+    profiles: ["app"]
+    build: ./backend
+    container_name: chasehorse_backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/chasehorse?schema=public
+      REDIS_URL: redis://redis:6379
+      APP_URL: ${APP_URL:-http://localhost:3000}
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    profiles: ["app"]
+    build:
+      context: ./frontend
+      args:
+        BACKEND_INTERNAL_URL: http://backend:5000
+    container_name: chasehorse_frontend
+    restart: unless-stopped
+    ports:
+      # Must match the port in APP_URL (OAuth redirect URIs and the CSRF origin check use it)
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      - backend
 
 volumes:
-  postgres_data:
-  redis_data:
-'@ | Set-Content -Path "D:\ChaseHorse-Outreach\docker-compose.yml"
+  chasehorse_pg:
+  chasehorse_redis:
